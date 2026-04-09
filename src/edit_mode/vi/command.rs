@@ -120,7 +120,7 @@ where
             let _ = input.next();
             Some(Command::SubstituteCharWithInsert)
         }
-        Some('?') => {
+        Some('/' | '?') => {
             let _ = input.next();
             Some(Command::HistorySearch)
         }
