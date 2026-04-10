@@ -1143,6 +1143,7 @@ impl Reedline {
                             );
                         }
                         menu.menu_event(MenuEvent::NextElement);
+                        menu.replace_in_buffer(&mut self.editor);
                         Ok(EventStatus::Handled)
                     }
                 } else {
@@ -1150,39 +1151,49 @@ impl Reedline {
                 }
             }
             ReedlineEvent::MenuPrevious => {
-                self.active_menu()
-                    .map_or(Ok(EventStatus::Inapplicable), |menu| {
-                        menu.menu_event(MenuEvent::PreviousElement);
-                        Ok(EventStatus::Handled)
-                    })
+                if let Some(menu) = self.menus.iter_mut().find(|menu| menu.is_active()) {
+                    menu.menu_event(MenuEvent::PreviousElement);
+                    menu.replace_in_buffer(&mut self.editor);
+                    Ok(EventStatus::Handled)
+                } else {
+                    Ok(EventStatus::Inapplicable)
+                }
             }
             ReedlineEvent::MenuUp => {
-                self.active_menu()
-                    .map_or(Ok(EventStatus::Inapplicable), |menu| {
-                        menu.menu_event(MenuEvent::MoveUp);
-                        Ok(EventStatus::Handled)
-                    })
+                if let Some(menu) = self.menus.iter_mut().find(|menu| menu.is_active()) {
+                    menu.menu_event(MenuEvent::MoveUp);
+                    menu.replace_in_buffer(&mut self.editor);
+                    Ok(EventStatus::Handled)
+                } else {
+                    Ok(EventStatus::Inapplicable)
+                }
             }
             ReedlineEvent::MenuDown => {
-                self.active_menu()
-                    .map_or(Ok(EventStatus::Inapplicable), |menu| {
-                        menu.menu_event(MenuEvent::MoveDown);
-                        Ok(EventStatus::Handled)
-                    })
+                if let Some(menu) = self.menus.iter_mut().find(|menu| menu.is_active()) {
+                    menu.menu_event(MenuEvent::MoveDown);
+                    menu.replace_in_buffer(&mut self.editor);
+                    Ok(EventStatus::Handled)
+                } else {
+                    Ok(EventStatus::Inapplicable)
+                }
             }
             ReedlineEvent::MenuLeft => {
-                self.active_menu()
-                    .map_or(Ok(EventStatus::Inapplicable), |menu| {
-                        menu.menu_event(MenuEvent::MoveLeft);
-                        Ok(EventStatus::Handled)
-                    })
+                if let Some(menu) = self.menus.iter_mut().find(|menu| menu.is_active()) {
+                    menu.menu_event(MenuEvent::MoveLeft);
+                    menu.replace_in_buffer(&mut self.editor);
+                    Ok(EventStatus::Handled)
+                } else {
+                    Ok(EventStatus::Inapplicable)
+                }
             }
             ReedlineEvent::MenuRight => {
-                self.active_menu()
-                    .map_or(Ok(EventStatus::Inapplicable), |menu| {
-                        menu.menu_event(MenuEvent::MoveRight);
-                        Ok(EventStatus::Handled)
-                    })
+                if let Some(menu) = self.menus.iter_mut().find(|menu| menu.is_active()) {
+                    menu.menu_event(MenuEvent::MoveRight);
+                    menu.replace_in_buffer(&mut self.editor);
+                    Ok(EventStatus::Handled)
+                } else {
+                    Ok(EventStatus::Inapplicable)
+                }
             }
             ReedlineEvent::MenuPageNext => {
                 self.active_menu()
