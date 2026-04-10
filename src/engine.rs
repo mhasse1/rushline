@@ -1124,6 +1124,8 @@ impl Reedline {
                             return Ok(EventStatus::Handled);
                         }
 
+                        // Replace buffer with first selected item immediately
+                        menu.replace_in_buffer(&mut self.editor);
                         return Ok(EventStatus::Handled);
                     }
                 }
