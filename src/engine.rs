@@ -1333,6 +1333,58 @@ impl Reedline {
                 Ok(EventStatus::Exits(Signal::Success(host_command)))
             }
             ReedlineEvent::Edit(commands) => {
+                // Vi hint acceptance: when cursor is at end of buffer and a forward
+                // motion is requested, accept from the hint instead of no-op.
+                if self.editor.is_cursor_at_buffer_end()
+                    && self.hints_active()
+                    && self.active_menu().is_none()
+                {
+                    if let Some(hinter) = self.hinter.as_mut() {
+                        let accepted = match commands.as_slice() {
+                            // l / MoveRight: accept one character from hint
+                            [EditCommand::MoveRight { .. }] => {
+                                let hint = hinter.complete_hint();
+                                if !hint.is_empty() {
+                                    // Accept first character
+                                    let ch = hint.chars().next().unwrap().to_string();
+                                    self.run_edit_commands(&[EditCommand::InsertString(ch)]);
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                            // w / MoveWordRight: accept next word from hint
+                            [EditCommand::MoveWordRight { .. }]
+                            | [EditCommand::MoveWordRightStart { .. }]
+                            | [EditCommand::MoveBigWordRightStart { .. }]
+                            | [EditCommand::MoveWordRightEnd { .. }]
+                            | [EditCommand::MoveBigWordRightEnd { .. }] => {
+                                let hint_part = hinter.next_hint_token();
+                                if !hint_part.is_empty() {
+                                    self.run_edit_commands(&[EditCommand::InsertString(hint_part)]);
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                            // $ / MoveToLineEnd: accept entire hint
+                            [EditCommand::MoveToLineEnd { .. }] => {
+                                let hint = hinter.complete_hint();
+                                if !hint.is_empty() {
+                                    self.run_edit_commands(&[EditCommand::InsertString(hint)]);
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                            _ => false,
+                        };
+                        if accepted {
+                            return Ok(EventStatus::Handled);
+                        }
+                    }
+                }
+
                 self.run_edit_commands(&commands);
                 if let Some(menu) = self.menus.iter_mut().find(|men| men.is_active()) {
                     if self.quick_completions && menu.can_quick_complete() {
