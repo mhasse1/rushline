@@ -738,6 +738,14 @@ impl Reedline {
         self.history.sync()
     }
 
+    /// Delete the last command from history (e.g., for meta-commands like `history`, `clear`).
+    /// Must be called before `sync_history` to prevent the entry from being written to disk.
+    pub fn delete_last_history_entry(&mut self) {
+        if let Some(id) = self.history_last_run_id.take() {
+            let _ = self.history.delete(id);
+        }
+    }
+
     /// Check if any commands have been run.
     ///
     /// When no commands have been run, calling [`Self::update_last_command_context`]

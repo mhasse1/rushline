@@ -200,13 +200,19 @@ impl History for FileBackedHistory {
         Ok(())
     }
 
-    fn delete(&mut self, _h: super::HistoryItemId) -> Result<()> {
-        Err(ReedlineError(
-            ReedlineErrorVariants::HistoryFeatureUnsupported {
-                history: "FileBackedHistory",
-                feature: "removing entries",
-            },
-        ))
+    fn delete(&mut self, h: super::HistoryItemId) -> Result<()> {
+        let idx = h.0 as usize;
+        if idx < self.entries.len() {
+            self.entries.remove(idx);
+            if self.len_on_disk > 0 && idx < self.len_on_disk {
+                self.len_on_disk -= 1;
+            }
+            Ok(())
+        } else {
+            Err(ReedlineError(
+                ReedlineErrorVariants::OtherHistoryError("Invalid history item ID"),
+            ))
+        }
     }
 
     /// Writes unwritten history contents to disk.
