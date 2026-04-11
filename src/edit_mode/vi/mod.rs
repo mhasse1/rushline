@@ -79,9 +79,9 @@ impl EditMode for Vi {
                 code, modifiers, ..
             }) => match (self.mode, modifiers, code) {
                 (ViMode::Normal, KeyModifiers::NONE, KeyCode::Char('v')) => {
+                    // Open $EDITOR with current line (readline/bash vi behavior)
                     self.cache.clear();
-                    self.mode = ViMode::Visual;
-                    ReedlineEvent::Multiple(vec![ReedlineEvent::Esc, ReedlineEvent::Repaint])
+                    ReedlineEvent::OpenEditor
                 }
                 (ViMode::Normal | ViMode::Visual, modifier, KeyCode::Char(c)) => {
                     let c = c.to_ascii_lowercase();
@@ -156,8 +156,18 @@ impl EditMode for Vi {
                 }
                 (_, KeyModifiers::NONE, KeyCode::Esc) => {
                     self.cache.clear();
+                    let was_insert = self.mode == ViMode::Insert;
                     self.mode = ViMode::Normal;
-                    ReedlineEvent::Multiple(vec![ReedlineEvent::Esc, ReedlineEvent::Repaint])
+                    if was_insert {
+                        // Vi: Esc from insert mode moves cursor back one position
+                        ReedlineEvent::Multiple(vec![
+                            ReedlineEvent::Esc,
+                            ReedlineEvent::Edit(vec![EditCommand::MoveLeft { select: false }]),
+                            ReedlineEvent::Repaint,
+                        ])
+                    } else {
+                        ReedlineEvent::Multiple(vec![ReedlineEvent::Esc, ReedlineEvent::Repaint])
+                    }
                 }
                 (ViMode::Normal | ViMode::Visual, _, _) => self
                     .normal_keybindings
@@ -240,7 +250,11 @@ mod test {
 
         assert_eq!(
             result,
-            ReedlineEvent::Multiple(vec![ReedlineEvent::Esc, ReedlineEvent::Repaint])
+            ReedlineEvent::Multiple(vec![
+                ReedlineEvent::Esc,
+                ReedlineEvent::Edit(vec![EditCommand::MoveLeft { select: false }]),
+                ReedlineEvent::Repaint,
+            ])
         );
         assert!(matches!(vi.mode, ViMode::Normal));
     }

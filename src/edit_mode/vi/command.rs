@@ -152,6 +152,14 @@ where
             let _ = input.next();
             Some(Command::RepeatLastAction)
         }
+        Some('n') => {
+            let _ = input.next();
+            Some(Command::NextHistorySearch)
+        }
+        Some('N') => {
+            let _ = input.next();
+            Some(Command::PreviousHistorySearch)
+        }
         Some('o') => {
             let _ = input.next();
             Some(Command::SwapCursorAndAnchor)
@@ -179,6 +187,8 @@ pub enum Command {
     RewriteCurrentLine,
     Change,
     HistorySearch,
+    NextHistorySearch,
+    PreviousHistorySearch,
     Switchcase,
     RepeatLastAction,
     Yank,
@@ -244,6 +254,8 @@ impl Command {
                 }
             }
             Self::HistorySearch => vec![ReedlineOption::Event(ReedlineEvent::SearchHistory)],
+            Self::NextHistorySearch => vec![ReedlineOption::Event(ReedlineEvent::NextHistorySearch)],
+            Self::PreviousHistorySearch => vec![ReedlineOption::Event(ReedlineEvent::PreviousHistorySearch)],
             Self::Switchcase => vec![ReedlineOption::Edit(EditCommand::SwitchcaseChar)],
             // Whenever a motion is required to finish the command we must be in visual mode
             Self::Delete | Self::Change => vec![ReedlineOption::Edit(EditCommand::CutSelection)],

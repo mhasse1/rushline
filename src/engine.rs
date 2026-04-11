@@ -143,6 +143,9 @@ pub struct Reedline {
     history_cursor_on_excluded: bool,
     input_mode: InputMode,
 
+    // Last history search term for n/N repeat
+    last_history_search_term: Option<String>,
+
     // State of the painter after a `ReedlineEvent::ExecuteHostCommand` was requested, used after
     // execution to decide if we can re-use the previous prompt or paint a new one.
     suspended_state: Option<PainterSuspendedState>,
@@ -270,6 +273,7 @@ impl Reedline {
             history_excluded_item: None,
             history_cursor_on_excluded: false,
             input_mode: InputMode::Regular,
+            last_history_search_term: None,
             suspended_state: None,
             last_render_snapshot: None,
             painter,
@@ -1010,6 +1014,15 @@ impl Reedline {
             | ReedlineEvent::HistoryHintComplete
             | ReedlineEvent::Submit
             | ReedlineEvent::SubmitOrNewline => {
+                // Save the search term for n/N repeat
+                if let HistoryNavigationQuery::SubstringSearch(ref term) =
+                    self.history_cursor.get_navigation()
+                {
+                    if !term.is_empty() {
+                        self.last_history_search_term = Some(term.clone());
+                    }
+                }
+
                 if let Some(string) = self.history_cursor.string_at_cursor() {
                     self.editor
                         .set_buffer(string, UndoBehavior::CreateUndoPoint);
@@ -1086,7 +1099,9 @@ impl Reedline {
             | ReedlineEvent::MenuRight
             | ReedlineEvent::MenuPageNext
             | ReedlineEvent::MenuPagePrevious
-            | ReedlineEvent::ViChangeMode(_) => Ok(EventStatus::Inapplicable),
+            | ReedlineEvent::ViChangeMode(_)
+            | ReedlineEvent::NextHistorySearch
+            | ReedlineEvent::PreviousHistorySearch => Ok(EventStatus::Inapplicable),
         }
     }
 
@@ -1404,6 +1419,40 @@ impl Reedline {
             }
             ReedlineEvent::SearchHistory => {
                 self.enter_history_search();
+                Ok(EventStatus::Handled)
+            }
+            ReedlineEvent::NextHistorySearch => {
+                if let Some(ref term) = self.last_history_search_term {
+                    let term = term.clone();
+                    self.history_cursor = HistoryCursor::new(
+                        HistoryNavigationQuery::SubstringSearch(term),
+                        self.get_history_session_id(),
+                    );
+                    self.history_cursor
+                        .back(self.history.as_ref())
+                        .expect("todo: error handling");
+                    if let Some(string) = self.history_cursor.string_at_cursor() {
+                        self.editor
+                            .set_buffer(string, UndoBehavior::CreateUndoPoint);
+                    }
+                }
+                Ok(EventStatus::Handled)
+            }
+            ReedlineEvent::PreviousHistorySearch => {
+                if let Some(ref term) = self.last_history_search_term {
+                    let term = term.clone();
+                    self.history_cursor = HistoryCursor::new(
+                        HistoryNavigationQuery::SubstringSearch(term),
+                        self.get_history_session_id(),
+                    );
+                    self.history_cursor
+                        .forward(self.history.as_ref())
+                        .expect("todo: error handling");
+                    if let Some(string) = self.history_cursor.string_at_cursor() {
+                        self.editor
+                            .set_buffer(string, UndoBehavior::CreateUndoPoint);
+                    }
+                }
                 Ok(EventStatus::Handled)
             }
             ReedlineEvent::Multiple(events) => {

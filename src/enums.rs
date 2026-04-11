@@ -903,6 +903,12 @@ pub enum ReedlineEvent {
     /// Search the history for a string
     SearchHistory,
 
+    /// Repeat the last history search (next match, same direction)
+    NextHistorySearch,
+
+    /// Repeat the last history search (previous match, reverse direction)
+    PreviousHistorySearch,
+
     /// In vi mode multiple reedline events can be chained while parsing the
     /// command or movement characters
     Multiple(Vec<ReedlineEvent>),
@@ -981,6 +987,8 @@ impl Display for ReedlineEvent {
             ReedlineEvent::Left => write!(f, "Left"),
             ReedlineEvent::NextHistory => write!(f, "NextHistory"),
             ReedlineEvent::SearchHistory => write!(f, "SearchHistory"),
+            ReedlineEvent::NextHistorySearch => write!(f, "NextHistorySearch"),
+            ReedlineEvent::PreviousHistorySearch => write!(f, "PreviousHistorySearch"),
             ReedlineEvent::Multiple(_) => write!(f, "Multiple[ {{ ReedLineEvents, }} ]"),
             ReedlineEvent::UntilFound(_) => write!(f, "UntilFound [ {{ ReedLineEvents, }} ]"),
             ReedlineEvent::Menu(_) => write!(f, "Menu Name: <string>"),
