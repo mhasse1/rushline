@@ -538,10 +538,22 @@ impl Menu for ColumnarMenu {
             self.update_values(editor, completer);
         }
 
+        // Track whether the partial-complete was a unique completion
+        // (one suggestion replacing the partial text fully). If so, we
+        // shouldn't immediately re-query and pop the menu showing the
+        // *next* level (e.g. ~/sr → ~/src/ then immediately listing
+        // ~/src/'s contents). That requires a second Tab. Matches
+        // bash/zsh behavior.
+        let was_unique = self.get_values().len() == 1;
+
         if can_partially_complete(self.get_values(), editor) {
             // The values need to be updated because the spans need to be
             // recalculated for accurate replacement in the string
             self.update_values(editor, completer);
+
+            if was_unique {
+                self.active = false;
+            }
 
             true
         } else {
