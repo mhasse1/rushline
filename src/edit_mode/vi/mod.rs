@@ -78,9 +78,12 @@ impl EditMode for Vi {
             Event::Key(KeyEvent {
                 code, modifiers, ..
             }) => match (self.mode, modifiers, code) {
-                (ViMode::Normal, KeyModifiers::NONE, KeyCode::Char('v')) => {
-                    // Open $EDITOR with current line (readline/bash vi behavior)
-                    self.cache.clear();
+                (ViMode::Normal, KeyModifiers::NONE, KeyCode::Char('v'))
+                    if self.cache.is_empty() =>
+                {
+                    // Open $EDITOR with current line (readline/bash vi behavior).
+                    // Only when nothing is pending — otherwise 'f' followed by 'v'
+                    // would launch the editor instead of finding the next 'v'.
                     ReedlineEvent::OpenEditor
                 }
                 (ViMode::Normal | ViMode::Visual, modifier, KeyCode::Char(c)) => {
@@ -335,6 +338,55 @@ mod test {
         let result = vi.parse_event(esc);
 
         assert_eq!(result, ReedlineEvent::CtrlD);
+    }
+
+    #[test]
+    fn fv_finds_v_does_not_open_editor() {
+        // 'f' followed by 'v' in normal mode must find the next 'v',
+        // not launch $EDITOR. Regression test for the case where v's
+        // OpenEditor binding ran unconditionally and pre-empted the
+        // pending f-motion.
+        let mut vi = Vi::default();
+        vi.mode = ViMode::Normal;
+
+        let f = ReedlineRawEvent::try_from(Event::Key(KeyEvent::new(
+            KeyCode::Char('f'),
+            KeyModifiers::NONE,
+        )))
+        .unwrap();
+        let r1 = vi.parse_event(f);
+        assert_eq!(r1, ReedlineEvent::None, "f alone should be incomplete");
+
+        let v = ReedlineRawEvent::try_from(Event::Key(KeyEvent::new(
+            KeyCode::Char('v'),
+            KeyModifiers::NONE,
+        )))
+        .unwrap();
+        let r2 = vi.parse_event(v);
+        assert_ne!(
+            r2,
+            ReedlineEvent::OpenEditor,
+            "f then v must not launch the editor"
+        );
+        assert_eq!(
+            r2,
+            ReedlineEvent::Multiple(vec![ReedlineEvent::Edit(vec![
+                EditCommand::MoveRightUntil { c: 'v', select: false }
+            ])])
+        );
+    }
+
+    #[test]
+    fn bare_v_still_opens_editor() {
+        // The OpenEditor binding still fires when nothing is pending.
+        let mut vi = Vi::default();
+        vi.mode = ViMode::Normal;
+        let v = ReedlineRawEvent::try_from(Event::Key(KeyEvent::new(
+            KeyCode::Char('v'),
+            KeyModifiers::NONE,
+        )))
+        .unwrap();
+        assert_eq!(vi.parse_event(v), ReedlineEvent::OpenEditor);
     }
 
     #[test]
