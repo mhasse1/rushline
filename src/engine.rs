@@ -1947,7 +1947,13 @@ impl Reedline {
 
     /// Checks if hints should be displayed and are able to be completed
     fn hints_active(&self) -> bool {
-        !self.hide_hints && matches!(self.input_mode, InputMode::Regular)
+        // Suppress hints while a completion menu is open so the
+        // history-based autosuggestion doesn't paint a second
+        // "suffix" next to the menu's already-selected candidate.
+        // Matches the convention used by zsh menu-select and fish.
+        !self.hide_hints
+            && matches!(self.input_mode, InputMode::Regular)
+            && self.menus.iter().all(|m| !m.is_active())
     }
 
     /// Repaint of either the buffer or the parts for reverse history search
