@@ -612,6 +612,16 @@ impl Menu for IdeMenu {
                 self.active = false;
                 self.input = None;
             }
+            // Process selection movement synchronously so the engine's
+            // immediate_replace_in_buffer call right after this sees
+            // the new `selected` index instead of the stale one.
+            // Without this, Tab / Shift+Tab display the previous
+            // selection in the buffer while visually highlighting the
+            // new one. The matching match arms in
+            // `update_working_details` are now no-ops for these events
+            // so the advance doesn't get applied twice.
+            MenuEvent::NextElement | MenuEvent::MoveDown => self.move_next(),
+            MenuEvent::PreviousElement | MenuEvent::MoveUp => self.move_previous(),
             _ => {}
         }
 
@@ -677,8 +687,13 @@ impl Menu for IdeMenu {
                         self.update_values(editor, completer);
                     }
                 }
-                MenuEvent::NextElement | MenuEvent::MoveDown => self.move_next(),
-                MenuEvent::PreviousElement | MenuEvent::MoveUp => self.move_previous(),
+                // NextElement / PreviousElement / MoveUp / MoveDown are
+                // processed synchronously in `menu_event` above so the
+                // engine sees the new `selected` index immediately.
+                MenuEvent::NextElement
+                | MenuEvent::MoveDown
+                | MenuEvent::PreviousElement
+                | MenuEvent::MoveUp => {}
                 MenuEvent::MoveLeft
                 | MenuEvent::MoveRight
                 | MenuEvent::PreviousPage

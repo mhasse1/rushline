@@ -1162,6 +1162,21 @@ impl Reedline {
                             return Ok(EventStatus::Handled);
                         }
 
+                        // Populate values synchronously for
+                        // immediate-completions users so the first Tab
+                        // can replace the buffer with the first item.
+                        // Without this, values are still empty when
+                        // `immediate_replace_in_buffer` runs — the menu
+                        // paints candidates on the next frame but the
+                        // buffer stays at the typed partial.
+                        if self.immediate_completions {
+                            menu.update_values(
+                                &mut self.editor,
+                                self.completer.as_mut(),
+                                self.history.as_ref(),
+                            );
+                        }
+
                         // Immediate completions: replace buffer with first item on activation
                         self.immediate_replace_in_buffer();
                         return Ok(EventStatus::Handled);
