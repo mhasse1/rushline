@@ -172,13 +172,6 @@ pub struct Painter {
     last_required_lines: u16,
     large_buffer: bool,
     just_resized: bool,
-    /// Set by `handle_resize` when the terminal *width* changed (not
-    /// just height). A width change reflows every prior row, so the
-    /// `lines_before_cursor` heuristic in the `just_resized` branch of
-    /// `repaint_buffer` produces garbage — we take the `is_reset` /
-    /// scorched-earth path instead, which is predictable at the cost
-    /// of pushing existing output up.
-    width_changed_on_resize: bool,
     after_cursor_lines: Option<String>,
     /// Optional semantic prompt markers for terminal integration (OSC 133/633)
     semantic_markers: Option<Box<dyn SemanticPromptMarkers>>,
@@ -196,7 +189,6 @@ impl Painter {
             last_required_lines: 0,
             large_buffer: false,
             just_resized: false,
-            width_changed_on_resize: false,
             after_cursor_lines: None,
             semantic_markers: None,
             last_layout: None,
@@ -416,22 +408,11 @@ impl Painter {
         self.prompt_height = lines.prompt_lines_with_wrap(screen_width) + 1;
         let lines_before_cursor = lines.required_lines(screen_width, true, None);
 
-        // Calibrate prompt start position for multi-line prompt/content
-        // before cursor. Check issue #841/#848/#930. On a height-only
-        // resize the row-based bookkeeping still holds; on a width
-        // change every prior row may have re-wrapped so the heuristic
-        // below produces garbage. In the width-change case we skip the
-        // adjustment and let the clean-reset branch below take over.
-        let width_changed = std::mem::take(&mut self.width_changed_on_resize);
-        if self.just_resized && !width_changed {
+        // Calibrate prompt start position for multi-line prompt/content before cursor. Check issue #841/#848/#930
+        if self.just_resized {
             self.prompt_start_row = self
                 .prompt_start_row
                 .saturating_sub(lines_before_cursor - 1);
-            self.just_resized = false;
-        } else if self.just_resized {
-            // Width changed: don't trust prompt_start_row at all. The
-            // `is_reset`-style branch below will scroll us to a clean
-            // state.
             self.just_resized = false;
         }
 
@@ -451,12 +432,8 @@ impl Painter {
             Err(_) => false,
         };
 
-        // Moving the start position of the cursor based on the size of
-        // the required lines. `width_changed` also routes us here: after
-        // a width-changing resize the terminal has reflowed everything
-        // and trying to thread a row-accurate repaint is unreliable;
-        // the clean-reset path is predictable.
-        if self.large_buffer || is_reset() || width_changed {
+        // Moving the start position of the cursor based on the size of the required lines
+        if self.large_buffer || is_reset() {
             for _ in 0..screen_height.saturating_sub(lines_before_cursor) {
                 self.stdout.queue(Print(&coerce_crlf("\n")))?;
             }
@@ -902,15 +879,8 @@ impl Painter {
         Ok(())
     }
 
-    /// Updates prompt origin and offset to handle a screen resize event.
-    ///
-    /// A width change reflows every row in the terminal, invalidating
-    /// the row-based prompt_start_row we were tracking. A height change
-    /// alone doesn't reflow anything, so the old position is still
-    /// valid. Track the pre-resize width so `repaint_buffer` can decide
-    /// whether to trust the heuristic adjustment or do a full reset.
+    /// Updates prompt origin and offset to handle a screen resize event
     pub(crate) fn handle_resize(&mut self, width: u16, height: u16) {
-        let width_changed = width != self.terminal_size.0;
         self.terminal_size = (width, height);
 
         // `cursor::position() is blocking and can timeout.
@@ -929,12 +899,6 @@ impl Painter {
             if let Ok(position) = cursor::position() {
                 self.prompt_start_row = position.1;
                 self.just_resized = true;
-                // If the width changed, every prior row may have
-                // re-wrapped and the row-based bookkeeping is no longer
-                // meaningful. Force the clean-reset path in the next
-                // repaint rather than relying on the lines_before_cursor
-                // heuristic (which only works when geometry is stable).
-                self.width_changed_on_resize = width_changed;
             }
         }
     }
